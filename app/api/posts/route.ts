@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
 import clientPromise from "@/lib/mongodb"
 import type { Post } from "@/lib/models"
+import { getCurrentUser } from "@/lib/auth"
+import { ObjectId } from "mongodb"
 
-// GET all posts
+// Tüm gönderileri getir
 export async function GET() {
   try {
     const client = await clientPromise
@@ -12,13 +14,19 @@ export async function GET() {
 
     return NextResponse.json(posts)
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch posts" }, { status: 500 })
+    console.error("Gönderileri getirme hatası:", error)
+    return NextResponse.json({ error: "Gönderiler getirilirken bir hata oluştu" }, { status: 500 })
   }
 }
 
-// POST a new post
+// Yeni gönderi oluştur
 export async function POST(request: Request) {
   try {
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return NextResponse.json({ error: "Bu işlem için giriş yapmalısınız" }, { status: 401 })
+    }
+
     const client = await clientPromise
     const db = client.db("blog")
 
@@ -27,7 +35,8 @@ export async function POST(request: Request) {
     const post: Post = {
       title: data.title,
       content: data.content,
-      author: data.author,
+      authorId: new ObjectId(currentUser.id),
+      authorName: currentUser.name,
       createdAt: new Date(),
     }
 
@@ -35,12 +44,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        message: "Post created successfully",
+        message: "Gönderi başarıyla oluşturuldu",
         postId: result.insertedId,
       },
       { status: 201 },
     )
   } catch (error) {
-    return NextResponse.json({ error: "Failed to create post" }, { status: 500 })
+    console.error("Gönderi oluşturma hatası:", error)
+    return NextResponse.json({ error: "Gönderi oluşturulurken bir hata oluştu" }, { status: 500 })
   }
 }
